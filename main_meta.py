@@ -1,27 +1,4 @@
-"""
-main_meta.py
-============
-WhatsApp chatbot using the **Meta WhatsApp Cloud API** (your own number /
-Meta test number) instead of the Twilio sandbox.
 
-It answers questions from YOUR documents using the shared RAG logic in rag.py.
-
-How Meta's webhook works (different from Twilio):
-  * Meta first sends a GET request to verify your webhook (handshake).
-  * Then Meta sends incoming messages as POST requests with nested JSON.
-  * You reply by calling the Meta Graph API with your access token
-    (the reply is NOT inline like Twilio's TwiML).
-
-Required .env values:
-  META_VERIFY_TOKEN    - any secret string you choose (used in the webhook setup)
-  META_ACCESS_TOKEN    - access token from your Meta app (WhatsApp > API Setup)
-  META_PHONE_NUMBER_ID - the "Phone number ID" from WhatsApp > API Setup
-
-Run:
-    python main_meta.py
-Then `ngrok http 5000` and register https://<ngrok-url>/whatsapp as the
-Callback URL in your Meta app (with the same verify token).
-"""
 
 import os
 

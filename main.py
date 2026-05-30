@@ -1,24 +1,4 @@
-"""
-main.py
-=======
-WhatsApp chatbot that answers questions using YOUR documents.
 
-Flow:
-  WhatsApp message
-    -> Twilio sends it to this Flask webhook (/whatsapp)
-    -> LangChain finds the most relevant chunks in the FAISS vector DB
-    -> A free HuggingFace LLM writes an answer grounded in those chunks
-    -> The answer is sent back to the user on WhatsApp
-
-Prerequisites:
-  1. Run `python ingest.py` first to build the vector_db/ folder.
-  2. Fill in your .env file (HuggingFace token + Twilio credentials).
-
-Run:
-    python main.py
-Then expose it publicly (e.g. `ngrok http 5000`) and point your Twilio
-WhatsApp sandbox webhook at  https://<your-ngrok-url>/whatsapp
-"""
 
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse

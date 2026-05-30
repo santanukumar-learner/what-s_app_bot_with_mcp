@@ -1,16 +1,3 @@
-"""
-ingest.py
-=========
-Reads every PDF in the `docs/` folder, splits the text into chunks,
-creates embeddings with a free HuggingFace model, and stores them in a
-local FAISS vector database (`vector_db/`).
-
-Run this ONCE to build the database, and again whenever you add or
-change documents:
-
-    python ingest.py
-"""
-
 import os
 import sys
 

@@ -1,18 +1,4 @@
-"""
-test_chat.py
-============
-Quick command-line test of the RAG pipeline WITHOUT WhatsApp/Twilio.
-Use it to confirm your HuggingFace token + LLM + vector DB all work.
-
-Requires: HUGGINGFACEHUB_API_TOKEN set in .env, and `python ingest.py`
-already run.
-
-Usage:
-    python test_chat.py
-Then type questions about your documents. Type 'quit' to exit.
-"""
-
-from rag import answer_question  # reuses the same RAG chain as the WhatsApp bot
+from rag import answer_question  
 
 
 def main():

@@ -1,12 +1,4 @@
-"""
-rag.py
-======
-Shared Retrieval-Augmented-Generation logic used by BOTH WhatsApp backends
-(`main.py` for Twilio and `main_meta.py` for the Meta WhatsApp Cloud API).
 
-It loads the FAISS vector DB + a free HuggingFace chat LLM and exposes a
-single function: `answer_question(question) -> str`.
-"""
 
 import os
 
