@@ -24,5 +24,10 @@ twilio>=9.0.0
 # --- HTTP client for Meta Graph API (main_meta.py) ---
 requests>=2.31.0
 
+# --- Multi-user version (Postgres + pgvector) ---
+langchain-postgres>=0.0.12
+psycopg[binary]>=3.1.0
+SQLAlchemy>=2.0.0
+
 # --- Load secrets from .env ---
 python-dotenv>=1.0.0

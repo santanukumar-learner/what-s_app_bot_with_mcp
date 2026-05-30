@@ -100,6 +100,48 @@ Use this instead of Twilio to run on your own number or Meta's free test number.
 
 ---
 
+## Multi-user version (Postgres + pgvector)
+Serve many users, each with their OWN documents. The bot identifies the sender
+by WhatsApp number and answers using only that user's data.
+
+**Architecture:** every document chunk is tagged with a `user_id` and stored in
+**pgvector** (inside Postgres). Retrieval is filtered by `user_id`, so users
+never see each other's data.
+
+### Setup
+1. **Start Postgres + pgvector** (needs Docker Desktop running):
+   ```powershell
+   docker compose up -d
+   ```
+   This launches Postgres on `localhost:5432` with the connection string already
+   set in `.env` as `DATABASE_URL`.
+
+2. **Register a user and ingest their PDFs** (creates the user + the tables):
+   ```powershell
+   python ingest_user.py --number +9170771xxxxx --name "Acme Corp" --docs docs
+   ```
+   Repeat for each user with their own `--number` and `--docs` folder.
+
+3. **Run the multi-user webhook** (instead of `main_meta.py`):
+   ```powershell
+   python main_meta_multi.py
+   ```
+   Then connect ngrok + the Meta webhook exactly as in the Meta section above.
+
+4. **Chat**: each registered number gets answers from only their own documents.
+   Unregistered numbers get a "you're not set up yet" message.
+
+### Multi-user files
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Postgres + pgvector database |
+| `db.py` | DB connection + tables (users, documents, messages) |
+| `rag_multi.py` | Per-user RAG (pgvector, filtered by `user_id`) |
+| `ingest_user.py` | Register a user + ingest their PDFs |
+| `main_meta_multi.py` | Multi-user Meta webhook |
+
+---
+
 ### Files
 | File | Purpose |
 |------|---------|
@@ -124,3 +166,5 @@ Use this instead of Twilio to run on your own number or Meta's free test number.
 - **Meta: message received but no reply** → token expired (regenerate) or recipient
   number not added in API Setup, or you didn't **Subscribe** to the `messages` webhook field.
 - **Port 5000 in use** → only one server (`main.py` OR `main_meta.py`) can run at a time.
+- **Multi-user: connection refused / port 5432** → Docker Desktop isn't running, or `docker compose up -d` wasn't run.
+- **Multi-user: bot says "not set up yet"** → that number isn't registered; run `ingest_user.py` for it.
