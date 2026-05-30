@@ -1,0 +1,28 @@
+# --- LangChain core + integrations ---
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-huggingface>=0.1.0
+
+# --- Embeddings (run locally, free) ---
+sentence-transformers>=3.0.0
+
+# --- Vector database (local, free) ---
+faiss-cpu>=1.8.0
+
+# --- PDF loading ---
+pypdf>=4.0.0
+
+# --- HuggingFace Inference API client ---
+huggingface-hub>=0.25.0
+
+# --- Web server for the WhatsApp webhook ---
+flask>=3.0.0
+
+# --- Twilio WhatsApp (main.py) ---
+twilio>=9.0.0
+
+# --- HTTP client for Meta Graph API (main_meta.py) ---
+requests>=2.31.0
+
+# --- Load secrets from .env ---
+python-dotenv>=1.0.0
