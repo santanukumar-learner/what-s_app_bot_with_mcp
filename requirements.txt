@@ -1,9 +1,12 @@
-# --- LangChain core + integrations ---
+# --- Claude (the LLM brain) ---
+anthropic>=0.40.0
+
+# --- LangChain: used only for embeddings + FAISS retrieval (not the LLM) ---
 langchain>=0.3.0
 langchain-community>=0.3.0
 langchain-huggingface>=0.1.0
 
-# --- Embeddings (run locally, free) ---
+# --- Embeddings (run locally, free — no API token needed) ---
 sentence-transformers>=3.0.0
 
 # --- Vector database (local, free) ---

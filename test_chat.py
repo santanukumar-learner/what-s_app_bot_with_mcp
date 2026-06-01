@@ -1,21 +1,30 @@
-from rag import answer_question  
+from chatbot import answer
 
 
 def main():
-    print("=" * 60)
-    print("Document chatbot — local test (no WhatsApp).")
-    print("Ask a question about your PDFs. Type 'quit' to exit.")
-    print("=" * 60)
+    print("=" * 64)
+    print(f" Claude WhatsApp-style chatbot — local test (no WhatsApp)")
+    print("=" * 64)
+    phone = input("Enter a phone number to chat as (e.g. +919812345678): ").strip()
+    if not phone:
+        phone = "+910000000000"
+    print(f"\nChatting as {phone}. Type 'quit' to exit, 'switch' to change number.\n")
+
     while True:
         try:
-            question = input("\nYou: ").strip()
+            message = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
             break
-        if question.lower() in {"quit", "exit", "q"}:
+        if message.lower() in {"quit", "exit", "q"}:
             break
-        if not question:
+        if message.lower() == "switch":
+            phone = input("New phone number: ").strip() or phone
+            print(f"\nNow chatting as {phone}.\n")
             continue
-        print("Bot:", answer_question(question))
+        if not message:
+            continue
+        print("Bot:", answer(phone, message), "\n")
+
     print("\nBye!")
 
 

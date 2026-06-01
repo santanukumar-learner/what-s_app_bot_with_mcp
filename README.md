@@ -1,19 +1,25 @@
-# WhatsApp Document Chatbot
+# Claude WhatsApp Chatbot (with per-user memory)
 
-A WhatsApp chatbot that answers questions based on **your own PDF documents**,
-built with **LangChain**, **free HuggingFace** models/embeddings, and a local
-**FAISS** vector database.
+A chatbot powered by **Claude** (Anthropic) that:
 
-Two WhatsApp backends are included (pick one):
-- **`main.py`** — Twilio WhatsApp sandbox (fastest to test)
-- **`main_meta.py`** — Meta WhatsApp Cloud API (your own / Meta test number)
+- **answers company questions** grounded in your own PDF documents (RAG over a
+  local **FAISS** vector DB built with free local embeddings), and
+- **remembers each user personally** — when someone tells the bot a fact about
+  themselves (name, email, role, city…), it's saved to a local **SQLite**
+  database keyed by their **phone number**, and recalled in future chats, and
+- **stores the full message history** per user.
 
-Both share the same brain (`rag.py`).
+> Build & test the chatbot first in the terminal (`test_chat.py`). WhatsApp
+> wiring (Twilio / Meta) comes after and reuses the same brain.
 
 ```
-Your PDFs (docs/) ──> ingest.py ──> embeddings (HuggingFace) ──> FAISS vector_db/
-                                                                       │
-WhatsApp msg ──> Twilio / Meta ──> webhook ──> retrieve chunks ──> HF LLM ──> reply
+Your PDFs (docs/) ─> ingest.py ─> local embeddings ─> FAISS vector_db/  (company knowledge)
+                                                            │
+phone + message ─> chatbot.answer() ─> retrieve chunks ─┐   │
+                         │                              ▼   ▼
+        SQLite (profile + history, keyed by phone) ─> Claude ─> reply
+                         ▲                              │
+                         └──── save_personal_info ◄─────┘  (Claude remembers new facts)
 ```
 
 ## 1. One-time setup
@@ -30,18 +36,34 @@ pip install -r requirements.txt
 
 ### c) Add your secrets
 Open `.env` and fill in:
-- `HUGGINGFACEHUB_API_TOKEN` — free token from https://huggingface.co/settings/tokens (type: Read).
-  The LLM (`Qwen/Qwen2.5-7B-Instruct`) runs on HuggingFace's servers — **not** your PC.
-- `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` — from https://console.twilio.com
+- `ANTHROPIC_API_KEY` — from https://console.anthropic.com/ → API Keys. **Required.**
+- `ANTHROPIC_MODEL` — defaults to `claude-opus-4-8`. Set to `claude-haiku-4-5`
+  (cheapest/fastest) or `claude-sonnet-4-6` to lower cost.
+- `COMPANY_NAME` — your company's name (used in the bot's persona).
 
-## 2. Build the vector database
+The embedding model runs **locally and free** — no HuggingFace token needed.
+
+## 2. Build the company knowledge base
 Put your PDFs in the `docs/` folder, then run:
 ```powershell
 python ingest.py
 ```
 This creates a `vector_db/` folder. Re-run it whenever you add/change documents.
 
-## 3. Run the chatbot server
+## 3. Chat in the terminal (do this first!)
+```powershell
+python test_chat.py
+```
+You "log in" with a phone number, then chat. Tell it your name, ask about your
+company, quit, re-run with the same number — it still remembers you. Use a
+different number to confirm each user gets separate memory.
+
+## 4. (Later) Run the WhatsApp server
+> ⚠️ **Not wired up yet.** The webhook files below (`main.py`, `main_meta.py`)
+> still call the **old** HuggingFace brain (`rag.py`). When we connect WhatsApp,
+> they'll be pointed at `chatbot.answer(phone, message)` — passing the sender's
+> WhatsApp number as the `phone` so memory works per contact automatically.
+
 ```powershell
 python main.py
 ```
