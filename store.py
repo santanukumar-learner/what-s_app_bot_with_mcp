@@ -1,21 +1,3 @@
-"""
-store.py
-========
-Per-user storage for the Claude chatbot, backed by a single local SQLite file.
-
-The user's **phone number is the primary key**. We keep two things per user:
-
-  * a `profile` (a JSON blob of personal facts the user has told us, e.g.
-    {"name": "Aditya", "city": "Bhubaneswar"}), and
-  * their full `message` history (one row per inbound/outbound message).
-
-When the user comes back later, `chatbot.py` loads their profile + recent
-history so Claude can answer in a user-specific way.
-
-No server to run — SQLite is just a file on disk (default: chatbot.db).
-Set DB_PATH in .env to change the location.
-"""
-
 import json
 import os
 import sqlite3

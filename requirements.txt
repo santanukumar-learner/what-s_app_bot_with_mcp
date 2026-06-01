@@ -12,25 +12,20 @@ sentence-transformers>=3.0.0
 # --- Vector database (local, free) ---
 faiss-cpu>=1.8.0
 
-# --- PDF loading ---
+# --- PDF loading (ingest.py) ---
 pypdf>=4.0.0
-
-# --- HuggingFace Inference API client ---
-huggingface-hub>=0.25.0
 
 # --- Web server for the WhatsApp webhook ---
 flask>=3.0.0
+
+# --- Production WSGI server (Windows-friendly; see README "Run in production") ---
+waitress>=3.0.0
 
 # --- Twilio WhatsApp (main.py) ---
 twilio>=9.0.0
 
 # --- HTTP client for Meta Graph API (main_meta.py) ---
 requests>=2.31.0
-
-# --- Multi-user version (Postgres + pgvector) ---
-langchain-postgres>=0.0.12
-psycopg[binary]>=3.1.0
-SQLAlchemy>=2.0.0
 
 # --- Load secrets from .env ---
 python-dotenv>=1.0.0

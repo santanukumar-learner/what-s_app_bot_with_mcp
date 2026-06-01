@@ -3,7 +3,7 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
-from rag import answer_question  # shared RAG logic (vector DB + LLM)
+from chatbot import answer  # Claude brain: company RAG + per-user memory
 
 app = Flask(__name__)
 
@@ -12,12 +12,12 @@ app = Flask(__name__)
 def whatsapp_webhook():
     """Twilio calls this endpoint with each incoming WhatsApp message."""
     incoming_msg = request.values.get("Body", "").strip()
-    sender = request.values.get("From", "unknown")
+    sender = request.values.get("From", "unknown")  # e.g. "whatsapp:+919812345678"
     print(f"\n[MSG] from {sender}: {incoming_msg!r}")
 
-    reply_text = answer_question(incoming_msg) if incoming_msg else (
-        "Send me a question about the documents and I'll help!"
-    )
+    # The sender's WhatsApp number is the memory key (normalized in store.py),
+    # so each contact gets their own profile + history automatically.
+    reply_text = answer(sender, incoming_msg)
     print(f"[REPLY] {reply_text!r}")
 
     twiml = MessagingResponse()

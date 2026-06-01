@@ -58,19 +58,21 @@ You "log in" with a phone number, then chat. Tell it your name, ask about your
 company, quit, re-run with the same number — it still remembers you. Use a
 different number to confirm each user gets separate memory.
 
-## 4. (Later) Run the WhatsApp server
-> ⚠️ **Not wired up yet.** The webhook files below (`main.py`, `main_meta.py`)
-> still call the **old** HuggingFace brain (`rag.py`). When we connect WhatsApp,
-> they'll be pointed at `chatbot.answer(phone, message)` — passing the sender's
-> WhatsApp number as the `phone` so memory works per contact automatically.
+## 4. Connect to WhatsApp
+Both webhook servers call the same Claude brain — `chatbot.answer(phone, message)`
+— passing the sender's WhatsApp number as the memory key, so each contact gets
+their own profile + history automatically. Pick **one** backend (only one can
+use port 5000 at a time).
 
+### Run the server (Twilio)
 ```powershell
 python main.py
 ```
-The server starts on http://localhost:5000
+The server starts on http://localhost:5000. (For production, see
+[Run in production](#run-in-production) below.)
 
-## 4. Expose it to the internet with ngrok
-Twilio needs a public URL to reach your local server.
+### Expose it to the internet with ngrok
+WhatsApp needs a public URL to reach your local server.
 1. Download ngrok: https://ngrok.com/download
 2. In a **second** terminal:
    ```powershell
@@ -78,7 +80,7 @@ Twilio needs a public URL to reach your local server.
    ```
 3. Copy the `https://....ngrok-free.app` URL it shows.
 
-## 5. Connect Twilio WhatsApp sandbox
+### Connect the Twilio WhatsApp sandbox
 1. Twilio Console → **Messaging → Try it out → Send a WhatsApp message**.
 2. From your phone, send the join code (e.g. `join <two-words>`) to the
    Twilio sandbox number to activate WhatsApp.
@@ -87,10 +89,8 @@ Twilio needs a public URL to reach your local server.
    https://<your-ngrok-url>/whatsapp
    ```
    Method: **POST**. Save.
-
-## 6. Chat!
-Send a WhatsApp message with a question about your documents to the sandbox
-number. The bot replies with an answer grounded in your PDFs.
+4. **Chat!** Message the sandbox number — replies are grounded in your PDFs and
+   the bot remembers what you tell it.
 
 ---
 
@@ -122,71 +122,59 @@ Use this instead of Twilio to run on your own number or Meta's free test number.
 
 ---
 
-## Multi-user version (Postgres + pgvector)
-Serve many users, each with their OWN documents. The bot identifies the sender
-by WhatsApp number and answers using only that user's data.
+## Run in production
+The `python main.py` command uses Flask's built-in **development** server, which
+isn't meant for production. Use the bundled **waitress** WSGI server instead:
 
-**Architecture:** every document chunk is tagged with a `user_id` and stored in
-**pgvector** (inside Postgres). Retrieval is filtered by `user_id`, so users
-never see each other's data.
+```powershell
+# Twilio backend
+waitress-serve --listen=0.0.0.0:5000 main:app
 
-### Setup
-1. **Start Postgres + pgvector** (needs Docker Desktop running):
-   ```powershell
-   docker compose up -d
-   ```
-   This launches Postgres on `localhost:5432` with the connection string already
-   set in `.env` as `DATABASE_URL`.
+# Meta backend
+waitress-serve --listen=0.0.0.0:5000 main_meta:app
+```
 
-2. **Register a user and ingest their PDFs** (creates the user + the tables):
-   ```powershell
-   python ingest_user.py --number +9170771xxxxx --name "Acme Corp" --docs docs
-   ```
-   Repeat for each user with their own `--number` and `--docs` folder.
-
-3. **Run the multi-user webhook** (instead of `main_meta.py`):
-   ```powershell
-   python main_meta_multi.py
-   ```
-   Then connect ngrok + the Meta webhook exactly as in the Meta section above.
-
-4. **Chat**: each registered number gets answers from only their own documents.
-   Unregistered numbers get a "you're not set up yet" message.
-
-### Multi-user files
-| File | Purpose |
-|------|---------|
-| `docker-compose.yml` | Postgres + pgvector database |
-| `db.py` | DB connection + tables (users, documents, messages) |
-| `rag_multi.py` | Per-user RAG (pgvector, filtered by `user_id`) |
-| `ingest_user.py` | Register a user + ingest their PDFs |
-| `main_meta_multi.py` | Multi-user Meta webhook |
+Production checklist:
+- Put a real HTTPS endpoint in front (a domain + reverse proxy, or a host like
+  Render/Railway/Fly) instead of ngrok, and point the WhatsApp webhook at it.
+- Use a **permanent** Meta access token (System User token), not the 24h one.
+- Keep `ANTHROPIC_API_KEY` and other secrets in the host's secret manager / env
+  vars — never commit `.env`.
+- `chatbot.db` holds personal data; back it up and restrict file access. To
+  scale beyond one machine, swap `store.py`'s SQLite for a managed database.
 
 ---
 
-### Files
+## Files
 | File | Purpose |
 |------|---------|
-| `docs/` | Your PDF documents |
-| `ingest.py` | Builds the FAISS vector DB from the PDFs |
-| `rag.py` | Shared RAG brain (vector DB + LLM) used by both servers |
+| `chatbot.py` | The Claude brain: company RAG + per-user memory + history |
+| `store.py` | SQLite layer (per-user profile + message history, keyed by phone) |
+| `ingest.py` | Builds the FAISS vector DB from the PDFs in `docs/` |
 | `main.py` | Twilio WhatsApp webhook |
 | `main_meta.py` | Meta WhatsApp Cloud API webhook |
-| `test_chat.py` | Test the bot in the terminal (no WhatsApp) |
+| `test_chat.py` | Chat with the bot in the terminal (no WhatsApp) |
+| `docs/` | Your PDF documents |
 | `vector_db/` | Generated vector database (do not edit) |
+| `chatbot.db` | Generated per-user store (git-ignored personal data) |
 | `.env` | Your secrets (never commit this) |
 
-### Configuration (in `.env`)
-- `HF_LLM_REPO_ID` — which HuggingFace LLM to use (default: `Qwen/Qwen2.5-7B-Instruct`)
-- `HF_EMBEDDING_MODEL` — embedding model (default: `sentence-transformers/all-MiniLM-L6-v2`)
+## Configuration (in `.env`)
+- `ANTHROPIC_API_KEY` — your Claude API key. **Required.**
+- `ANTHROPIC_MODEL` — model id (default `claude-opus-4-8`).
+- `COMPANY_NAME` — shown in the bot's persona.
+- `DB_PATH` — SQLite file location (default `chatbot.db`).
+- `HF_EMBEDDING_MODEL` — local embedding model (default `sentence-transformers/all-MiniLM-L6-v2`).
+- Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`.
+- Meta: `META_VERIFY_TOKEN`, `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, `META_GRAPH_API_VERSION`.
 
-### Troubleshooting
+## Troubleshooting
 - **`vector_db/ not found`** → run `python ingest.py` first.
-- **HuggingFace 401/403** → check your token in `.env`.
-- **No reply on WhatsApp (Twilio)** → confirm ngrok URL is set in Twilio and ends with `/whatsapp`.
+- **`ANTHROPIC_API_KEY is missing`** → paste your key into `.env`.
+- **No reply on WhatsApp (Twilio)** → confirm the ngrok URL is set in Twilio and ends with `/whatsapp`.
 - **Meta webhook "verify failed"** → the verify token in Meta must match `META_VERIFY_TOKEN` exactly.
-- **Meta: message received but no reply** → token expired (regenerate) or recipient
+- **Meta: message received but no reply** → token expired (regenerate), recipient
   number not added in API Setup, or you didn't **Subscribe** to the `messages` webhook field.
 - **Port 5000 in use** → only one server (`main.py` OR `main_meta.py`) can run at a time.
-- **Multi-user: connection refused / port 5432** → Docker Desktop isn't running, or `docker compose up -d` wasn't run.
-- **Multi-user: bot says "not set up yet"** → that number isn't registered; run `ingest_user.py` for it.
+- **Bot doesn't remember a user** → memory is keyed by phone number; confirm the
+  same number is being used (numbers are normalized, so `+91...` and `whatsapp:+91...` match).

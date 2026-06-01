@@ -6,7 +6,7 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, request
 
-from rag import answer_question  # shared RAG logic (vector DB + LLM)
+from chatbot import answer  # Claude brain: company RAG + per-user memory
 
 load_dotenv()
 
@@ -63,13 +63,13 @@ def receive_message():
             return "OK", 200
 
         message = messages[0]
-        sender = message["from"]                 # user's WhatsApp number
+        sender = message["from"]                 # user's WhatsApp number (memory key)
         text = message.get("text", {}).get("body", "").strip()
         print(f"\n[MSG] from {sender}: {text!r}")
 
-        reply = answer_question(text) if text else (
-            "Send me a question about the documents and I'll help!"
-        )
+        # The sender's number is the memory key, so each contact gets their own
+        # profile + history automatically.
+        reply = answer(sender, text)
         print(f"[REPLY] {reply!r}")
         send_whatsapp_message(sender, reply)
     except (KeyError, IndexError) as exc:

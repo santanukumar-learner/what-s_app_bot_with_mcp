@@ -33,6 +33,8 @@ phone + message ─> chatbot.answer() ─ retrieve ──────┤
 | `store.py` | SQLite layer. `users(phone PK, name, profile JSON, created_at)`, `messages(...)`. Helpers: `get_or_create_user`, `get_profile`, `update_profile`, `log_message`, `get_recent_messages`. Phone numbers are normalized (`normalize_number`) before use. |
 | `ingest.py` | Builds `vector_db/` from `docs/*.pdf`. Re-run after changing docs. |
 | `test_chat.py` | Terminal chat REPL; "log in" with a phone number. |
+| `main.py` | Twilio WhatsApp webhook → `chatbot.answer(sender, text)`. |
+| `main_meta.py` | Meta Cloud API WhatsApp webhook → `chatbot.answer(sender, text)`. |
 
 ## Commands
 
@@ -41,6 +43,8 @@ venv\Scripts\activate              # activate venv (Windows)
 pip install -r requirements.txt
 python ingest.py                   # (re)build vector_db/ from docs/
 python test_chat.py                # chat in terminal (needs ANTHROPIC_API_KEY)
+python main.py                     # Twilio webhook (dev server, port 5000)
+waitress-serve --listen=0.0.0.0:5000 main:app   # production WSGI server
 ```
 
 There is no test suite. To smoke-test non-LLM logic, exercise `store.py` and the
@@ -66,17 +70,21 @@ FAISS retriever directly (they need no API key).
 - **Phone number is the identity key** everywhere. Always normalize.
 - `chatbot.db` and `*.db` are git-ignored (personal data) — never commit them.
 
-## Legacy (do not extend without reason)
+## Production
 
-These predate the Claude rewrite and use HuggingFace + Postgres/pgvector:
-`rag.py`, `rag_multi.py`, `db.py`, `ingest_user.py`, `main_meta_multi.py`.
-The WhatsApp webhooks `main.py` (Twilio) and `main_meta.py` (Meta) still call the
-**old** `rag.py` brain. When wiring WhatsApp, point them at
-`chatbot.answer(sender_number, text)` so per-contact memory works automatically.
+`python main.py` runs Flask's dev server (fine for local/ngrok testing). For
+production use the bundled waitress WSGI server:
+`waitress-serve --listen=0.0.0.0:5000 main:app` (or `main_meta:app`). Front it
+with real HTTPS, use a permanent Meta token, keep secrets in env/secret manager,
+and back up `chatbot.db`. To scale past one box, replace SQLite in `store.py`.
+
+The old HuggingFace + Postgres/pgvector files (`rag.py`, `rag_multi.py`, `db.py`,
+`ingest_user.py`, `main_meta_multi.py`, `docker-compose.yml`) were **removed** in
+the production cleanup — don't reintroduce them.
 
 ## Roadmap (per the user)
 
-1. ✅ Build the Claude chatbot (RAG + per-user memory + history). **Done.**
+1. ✅ Build the Claude chatbot (RAG + per-user memory + history).
 2. ⏳ MCP integration for company docs — plug MCP tools into the existing
-   tool-use loop in `chatbot.py`.
-3. ⏳ Wire to WhatsApp (Twilio/Meta) reusing `chatbot.answer`.
+   tool-use loop in `chatbot.py` (waiting on the user's MCP docs).
+3. ✅ Wire to WhatsApp (Twilio + Meta) reusing `chatbot.answer`.
