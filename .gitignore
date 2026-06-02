@@ -13,6 +13,9 @@ vector_db/
 chatbot.db
 *.db
 
+# Personal Claude Code settings (local overrides)
+.claude/settings.local.json
+
 # HuggingFace / model cache
 .cache/
 

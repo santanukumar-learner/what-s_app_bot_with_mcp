@@ -3,10 +3,11 @@
 A chatbot powered by **Claude** (Anthropic) that:
 
 - **answers company questions** grounded in your own PDF documents (RAG over a
-  local **FAISS** vector DB built with free local embeddings), and
+  local **FAISS** vector DB built with free local embeddings), exposed to Claude
+  as an **MCP tool** (`search_company_docs`) it calls on demand, and
 - **remembers each user personally** — when someone tells the bot a fact about
-  themselves (name, email, role, city…), it's saved to a local **SQLite**
-  database keyed by their **phone number**, and recalled in future chats, and
+  themselves (name, email, role, city…), it's saved to **PostgreSQL** keyed by
+  their **phone number**, and recalled in future chats, and
 - **stores the full message history** per user.
 
 > Build & test the chatbot first in the terminal (`test_chat.py`). WhatsApp
@@ -15,12 +16,19 @@ A chatbot powered by **Claude** (Anthropic) that:
 ```
 Your PDFs (docs/) ─> ingest.py ─> local embeddings ─> FAISS vector_db/  (company knowledge)
                                                             │
-phone + message ─> chatbot.answer() ─> retrieve chunks ─┐   │
-                         │                              ▼   ▼
-        SQLite (profile + history, keyed by phone) ─> Claude ─> reply
-                         ▲                              │
-                         └──── save_personal_info ◄─────┘  (Claude remembers new facts)
+                          mcp_server.py (MCP) ◄──── search_company_docs (Claude calls it)
+                                  ▲ stdio                   │
+phone + message ─> chatbot.answer() ─ tool-use loop ────────┤
+                         │                                  ▼
+      PostgreSQL (profile + history, keyed by phone) ─────> Claude ─> reply
+                         ▲                                  │
+                         └──── save_personal_info ◄─────────┘  (Claude remembers new facts)
 ```
+
+Company knowledge is served by a small **MCP server** (`mcp_server.py`) that
+`chatbot.py` launches automatically — Claude calls its `search_company_docs`
+tool when it needs the docs. Because it's a standard MCP server over stdio, you
+can also connect other MCP clients (e.g. Claude Desktop) to it.
 
 ## 1. One-time setup
 
@@ -42,6 +50,16 @@ Open `.env` and fill in:
 - `COMPANY_NAME` — your company's name (used in the bot's persona).
 
 The embedding model runs **locally and free** — no HuggingFace token needed.
+
+### d) Start PostgreSQL
+Per-user profiles + message history live in Postgres. The easiest way is Docker
+(needs Docker Desktop running):
+```powershell
+docker compose up -d
+```
+This starts Postgres on `localhost:5432` with credentials matching the default
+`DATABASE_URL` in `.env`. (Already have a Postgres? Just point `DATABASE_URL`
+at it — the bot creates its tables automatically on first run.)
 
 ## 2. Build the company knowledge base
 Put your PDFs in the `docs/` folder, then run:
@@ -140,37 +158,46 @@ Production checklist:
 - Use a **permanent** Meta access token (System User token), not the 24h one.
 - Keep `ANTHROPIC_API_KEY` and other secrets in the host's secret manager / env
   vars — never commit `.env`.
-- `chatbot.db` holds personal data; back it up and restrict file access. To
-  scale beyond one machine, swap `store.py`'s SQLite for a managed database.
+- Point `DATABASE_URL` at a **managed Postgres** (RDS, Cloud SQL, Neon, Supabase,
+  …) rather than the local Docker one. It holds personal data — enable backups,
+  restrict network access, and use a strong password (not `postgres/postgres`).
 
 ---
 
 ## Files
 | File | Purpose |
 |------|---------|
-| `chatbot.py` | The Claude brain: company RAG + per-user memory + history |
-| `store.py` | SQLite layer (per-user profile + message history, keyed by phone) |
+| `chatbot.py` | The Claude brain: tool-use loop over company RAG + per-user memory + history |
+| `mcp_server.py` | Standalone MCP server (stdio) exposing `search_company_docs` over the FAISS DB |
+| `mcp_client.py` | Sync↔async bridge that lets `chatbot.py` call the MCP server |
+| `store.py` | PostgreSQL layer (per-user profile + message history, keyed by phone) |
 | `ingest.py` | Builds the FAISS vector DB from the PDFs in `docs/` |
 | `main.py` | Twilio WhatsApp webhook |
 | `main_meta.py` | Meta WhatsApp Cloud API webhook |
 | `test_chat.py` | Chat with the bot in the terminal (no WhatsApp) |
+| `docker-compose.yml` | Local PostgreSQL for the per-user store |
 | `docs/` | Your PDF documents |
 | `vector_db/` | Generated vector database (do not edit) |
-| `chatbot.db` | Generated per-user store (git-ignored personal data) |
 | `.env` | Your secrets (never commit this) |
 
 ## Configuration (in `.env`)
 - `ANTHROPIC_API_KEY` — your Claude API key. **Required.**
 - `ANTHROPIC_MODEL` — model id (default `claude-opus-4-8`).
 - `COMPANY_NAME` — shown in the bot's persona.
-- `DB_PATH` — SQLite file location (default `chatbot.db`).
+- `DATABASE_URL` — Postgres connection (default `postgresql://postgres:postgres@localhost:5432/whatsapp_bot`).
 - `HF_EMBEDDING_MODEL` — local embedding model (default `sentence-transformers/all-MiniLM-L6-v2`).
 - Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`.
 - Meta: `META_VERIFY_TOKEN`, `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, `META_GRAPH_API_VERSION`.
 
 ## Troubleshooting
-- **`vector_db/ not found`** → run `python ingest.py` first.
+- **`vector_db/ not found`** → run `python ingest.py` first (the MCP server loads it on startup).
+- **Bot starts but company answers are empty / "Connecting to company-docs MCP server" hangs**
+  → the MCP server subprocess failed to start. Run `python mcp_server.py` directly to
+  see its error (usually a missing `vector_db/` or a dependency install issue).
 - **`ANTHROPIC_API_KEY is missing`** → paste your key into `.env`.
+- **`connection refused` / can't reach Postgres** → start it with `docker compose up -d`
+  (Docker Desktop must be running), or fix `DATABASE_URL`. Use the plain
+  `postgresql://…` form, **not** `postgresql+psycopg://…`.
 - **No reply on WhatsApp (Twilio)** → confirm the ngrok URL is set in Twilio and ends with `/whatsapp`.
 - **Meta webhook "verify failed"** → the verify token in Meta must match `META_VERIFY_TOKEN` exactly.
 - **Meta: message received but no reply** → token expired (regenerate), recipient

@@ -1,0 +1,24 @@
+# Local PostgreSQL for the chatbot's per-user store (profiles + message history).
+# Start it with:  docker compose up -d
+# The credentials/db here match the default DATABASE_URL in .env.
+services:
+  db:
+    image: postgres:16
+    container_name: whatsapp_bot_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: whatsapp_bot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d whatsapp_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

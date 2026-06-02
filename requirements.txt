@@ -1,6 +1,9 @@
 # --- Claude (the LLM brain) ---
 anthropic>=0.40.0
 
+# --- MCP (company-docs server + client bridge) ---
+mcp>=1.0.0
+
 # --- LangChain: used only for embeddings + FAISS retrieval (not the LLM) ---
 langchain>=0.3.0
 langchain-community>=0.3.0
@@ -14,6 +17,10 @@ faiss-cpu>=1.8.0
 
 # --- PDF loading (ingest.py) ---
 pypdf>=4.0.0
+
+# --- PostgreSQL store (per-user profile + message history) ---
+psycopg[binary]>=3.1.0
+psycopg-pool>=3.2.0
 
 # --- Web server for the WhatsApp webhook ---
 flask>=3.0.0
